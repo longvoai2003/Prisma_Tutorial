@@ -12,7 +12,18 @@ datasource db {
   provider = "mysql"
 }
 
-// 
+// ─── ENUMS ───────────────────────────────
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
 
 // ─── Your First Model ───────────────────────────────
 model User {
@@ -26,11 +37,68 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // -- Relations ---
+  profile  Profile? // 1:1 — User has one Profile
+  posts    Post[] // 1:N — User has many Posts
+  comments Comment[] // 1:N — User has many Comments
+
   @@map("users") // maps to "users" table in
 }
 
-enum Role {
-  USER
-  ADMIN
-  MODERATOR
+// -- ONE-TO-ONE --
+model Profile {
+  id       Int     @id @default(autoincrement())
+  bio      String? @db.Text
+  avatar   String?
+  website  String?
+  location String?
+
+  // -- Relation back to User --
+  userId Int  @unique // FK + unique = 1:1
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model Post {
+  id        Int        @id @default(autoincrement())
+  title     String     @db.VarChar(255)
+  content   String?    @db.LongText
+  slug      String     @unique
+  status    PostStatus @default(DRAFT)
+  views     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // -- Relations --
+  authorId Int // FK to User 
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[] // 1:N - Post has many Comments
+  tags     Tag[] // M:N - Post has many Tags
+
+  // -- Indexes --
+  @@index([authorId])
+  @@index([status])
+  @@map("posts")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+
+  // -- Relations --
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  postId Int?
+  post   Post? @relation(fields: [postId], references: [id])
+}
+
+model Tag {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  post Post[]
+
+  @@map("tags")
 }
