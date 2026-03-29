@@ -1,0 +1,21 @@
+{
+  "name": "prisma_tutorial",
+  "version": "1.0.0",
+  "description": "> **From Zero to Production** — A hands-on, phase-by-phase guide for TypeScript developers.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "prisma": "^7.6.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.6.0"
+  }
+}
