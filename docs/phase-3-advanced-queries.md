@@ -7,8 +7,12 @@
 ## 3.1 Advanced Filtering
 
 ```typescript
-import { PrismaClient, Prisma } from "@prisma/client";
-const prisma = new PrismaClient();
+import "dotenv/config";
+import { PrismaClient, Prisma } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
 
 async function advancedFilters() {
   // ─── String Filters ───────────────────────

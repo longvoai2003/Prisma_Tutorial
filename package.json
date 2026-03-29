@@ -4,7 +4,9 @@
   "description": "> **From Zero to Production** — A hands-on, phase-by-phase guide for TypeScript developers.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "ts-node src/index.ts",
+    "studio": "npx prisma studio"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +18,9 @@
     "typescript": "^6.0.2"
   },
   "dependencies": {
-    "@prisma/client": "^7.6.0"
+    "@prisma/adapter-mariadb": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "dotenv": "^17.3.1",
+    "mysql2": "^3.20.0"
   }
 }

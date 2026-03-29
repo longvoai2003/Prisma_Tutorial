@@ -27,7 +27,81 @@ Traditional ORMs (TypeORM, Sequelize)     vs.     Prisma
 
 ---
 
-## 1.2 Project Setup
+## 1.2 Prisma 7 Architecture — The Adapter Pattern
+
+> ⚡ **Important for beginners**: Prisma 7 changed how your app connects to the database. Read this section carefully!
+
+### Before Prisma 7 (the old way)
+
+In older versions (Prisma 5, 6), the database URL lived inside `schema.prisma` and Prisma handled the connection internally:
+
+```prisma
+// ❌ OLD WAY — Prisma 5/6 (no longer works in Prisma 7!)
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")   // ← This line is REMOVED in Prisma 7
+}
+```
+
+### Prisma 7 (the new way) — Three separate pieces
+
+In Prisma 7, the connection is split into **3 parts**, each with a clear job:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    YOUR APP (index.ts)                       │
+│                                                             │
+│   1. ADAPTER  ──→  Speaks your database's language          │
+│       ↓            (PrismaMariaDb for MySQL/MariaDB)        │
+│   2. PRISMA CLIENT ──→ Uses the adapter to talk to DB       │
+│                                                             │
+│   3. prisma.config.ts ──→ Used ONLY by CLI tools            │
+│       (migrations, studio, etc.)                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### What is an Adapter?
+
+Think of an **adapter** like a power plug converter when you travel:
+
+```
+Your Laptop  ──→  Plug Adapter  ──→  Wall Socket
+(Prisma Client)   (PrismaMariaDb)    (MySQL Database)
+```
+
+- **Your laptop** = Prisma Client (your TypeScript code)
+- **The adapter** = `PrismaMariaDb` (translates Prisma's requests into MySQL queries)
+- **The wall socket** = Your MySQL database
+
+The adapter is a **translator** that sits between Prisma and your database. Different databases need different adapters:
+
+| Database | Adapter Package | Adapter Class |
+|----------|----------------|---------------|
+| MySQL / MariaDB | `@prisma/adapter-mariadb` | `PrismaMariaDb` |
+| PostgreSQL | `@prisma/adapter-pg` | `PrismaPg` |
+| SQLite | `@prisma/adapter-libsql` | `PrismaLibSQL` |
+
+### Why did Prisma make this change?
+
+1. **More control** — You can configure connection pools, timeouts, etc. yourself
+2. **Edge/serverless support** — Adapters work in environments like Cloudflare Workers
+3. **Flexibility** — You can swap databases without changing your Prisma queries
+4. **Separation of concerns** — CLI config vs. runtime config are clearly separated
+
+### The two config files explained
+
+| File | Used by | Purpose |
+|------|---------|---------|
+| `prisma.config.ts` | **CLI tools** (migrate, studio, db push) | Tells the CLI where your database is |
+| `src/index.ts` | **Your running app** | Tells PrismaClient how to connect at runtime |
+
+This means you provide the `DATABASE_URL` in **two places**:
+- In `prisma.config.ts` → so the CLI can run migrations
+- In `src/index.ts` → so your app can query data
+
+---
+
+## 1.3 Project Setup
 
 ### Step 1: Create & Initialize
 
@@ -42,9 +116,16 @@ npm init -y
 # Dev dependencies
 npm install -D prisma typescript ts-node @types/node
 
-# Runtime dependency
-npm install @prisma/client
+# Runtime dependencies
+npm install @prisma/client @prisma/adapter-mariadb mysql2 dotenv
 ```
+
+> 📝 **What's each package for?**
+> - `prisma` — The CLI tool (migrations, studio, generate)
+> - `@prisma/client` — The query builder you use in code
+> - `@prisma/adapter-mariadb` — The adapter that connects Prisma to MySQL
+> - `mysql2` — The underlying MySQL driver (the adapter uses this internally)
+> - `dotenv` — Loads your `.env` file so `process.env.DATABASE_URL` works
 
 ### Step 3: Configure TypeScript
 
@@ -56,6 +137,7 @@ Create `tsconfig.json`:
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -77,8 +159,8 @@ npx prisma init --datasource-provider mysql
 ```
 
 This creates:
-- `prisma/schema.prisma` — your minimal schema framework
-- `prisma.config.ts` — your main configuration entrypoint
+- `prisma/schema.prisma` — your database schema definition
+- `prisma.config.ts` — CLI configuration (for migrations, studio, etc.)
 - `.env` — environment variables
 
 ### Step 5: Configure the Database URL
@@ -89,16 +171,24 @@ This creates:
    DATABASE_URL="mysql://root:your_password@localhost:3306/prisma_tutorial"
    ```
 
-2. **Verify `prisma.config.ts`**. As of the newest major releases, Prisma handles URL configurations externally instead of within `schema.prisma`. It should look like this:
+2. **Verify `prisma.config.ts`** — This file tells the Prisma CLI (migrations, studio) where your database is. It should look like:
    ```typescript
-   export default {
-     earlyAccess: true,
-     schema: {
-       provider: "mysql",
-       url: process.env.DATABASE_URL,
-     }
-   };
+   import "dotenv/config";
+   import { defineConfig } from "prisma/config";
+
+   export default defineConfig({
+     schema: "prisma/schema.prisma",
+     migrations: {
+       path: "prisma/migrations",
+     },
+     datasource: {
+       url: process.env["DATABASE_URL"],
+     },
+   });
    ```
+
+> 💡 **Note**: `prisma.config.ts` is only used by CLI commands (`prisma migrate`, `prisma studio`).  
+> Your actual app code in `src/index.ts` connects through the **adapter** instead.
 
 ### Using Docker Compose (Recommended)
 Instead of installing MySQL directly on your machine, it is much simpler to run it using Docker Compose. 
@@ -136,20 +226,23 @@ Instead of installing MySQL directly on your machine, it is much simpler to run 
 
 ---
 
-## 1.3 Your First Schema
+## 1.4 Your First Schema
 
-Edit `prisma/schema.prisma`. Notice there is no longer a `url` field inside `datasource db` — that is now correctly handled by your `prisma.config.ts`!
+Edit `prisma/schema.prisma`:
 
 ```prisma
 // This is your Prisma schema file
 // Learn more: https://pris.ly/d/prisma-schema
     
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-ts"      // ← Prisma 7 uses "prisma-client-ts" (NOT "prisma-client-js")
+  output   = "../src/generated/prisma" // ← Where to generate the client code
 }
 
 datasource db {
   provider = "mysql"
+  // ⚠️ NO url here! In Prisma 7, the URL goes in prisma.config.ts (for CLI)
+  //    and in your adapter (for runtime)
 }
 
 // ─── Your First Model ───────────────────────────────
@@ -173,6 +266,14 @@ enum Role {
   MODERATOR
 }
 ```
+
+### Key Prisma 7 schema changes:
+
+| Setting | Old (Prisma 5/6) | New (Prisma 7) |
+|---------|-----------------|----------------|
+| Generator provider | `"prisma-client-js"` | `"prisma-client-ts"` |
+| Generator output | *(not needed)* | `"../src/generated/prisma"` |
+| Datasource url | `url = env("DATABASE_URL")` | *(removed — handled elsewhere)* |
 
 ### Schema Syntax Explained
 
@@ -216,7 +317,7 @@ model User {
 
 ---
 
-## 1.4 First Migration
+## 1.5 First Migration
 
 ```bash
 # Create and apply migration
@@ -254,22 +355,31 @@ CREATE TABLE `users` (
 
 ---
 
-## 1.5 Prisma Client — Basic CRUD
+## 1.6 Prisma Client — Basic CRUD
 
 Create `src/index.ts`:
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";                                 // 1️⃣ Load .env file
+import { PrismaClient } from "./generated/prisma/client"; // 2️⃣ Import from generated output
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";  // 3️⃣ Import the adapter
 
-// Initialize Prisma Client
+// Create the adapter — this is what actually talks to MySQL
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+
+// Initialize Prisma Client WITH the adapter
 const prisma = new PrismaClient({
-  log: ["query", "info", "warn", "error"], // Enable logging
+  adapter,                                    // ← Pass the adapter here!
+  log: ["query", "info", "warn", "error"],    // Enable logging
 });
 
 async function main() {
   // ═══════════════════════════════════════════
   // CREATE — Insert records
   // ═══════════════════════════════════════════
+
+  // Clean up existing users first to allow repeated runs
+  await prisma.user.deleteMany();
 
   // Create a single user
   const user1 = await prisma.user.create({
@@ -298,7 +408,6 @@ async function main() {
       { email: "diana@example.com", name: "Diana Prince", age: 30, role: "MODERATOR" },
       { email: "eve@example.com", name: "Eve Davis", age: 22 },
     ],
-    skipDuplicates: true, // Skip if email already exists
   });
   console.log(`✅ Batch created: ${batchResult.count} users`);
 
@@ -316,10 +425,11 @@ async function main() {
   });
   console.log("🔍 Found Alice:", alice);
 
-  // Find by ID
+  // Find by ID (use the actual ID from the created user)
   const userById = await prisma.user.findUnique({
-    where: { id: 1 },
+    where: { id: user1.id },
   });
+  console.log("🔍 User by ID:", userById);
 
   // Find first match (non-unique fields)
   const firstAdmin = await prisma.user.findFirst({
@@ -443,7 +553,7 @@ npm run dev
 
 ---
 
-## 1.6 Prisma Studio — Visual Database Browser
+## 1.7 Prisma Studio — Visual Database Browser
 
 ```bash
 npx prisma studio
@@ -456,7 +566,7 @@ This opens a **web-based GUI** at `http://localhost:5555` where you can:
 
 ---
 
-## 1.7 Exercises 📝
+## 1.8 Exercises 📝
 
 Try these on your own before moving to Phase 2:
 

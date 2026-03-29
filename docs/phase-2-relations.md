@@ -37,12 +37,13 @@ Update `prisma/schema.prisma`:
 
 ```prisma
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-ts"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 // ─── ENUMS ──────────────────────────────────
@@ -159,8 +160,12 @@ npx prisma migrate dev --name add-relations
 Create `src/relations.ts`:
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import "dotenv/config";
+import { PrismaClient } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // ═══════════════════════════════════════════

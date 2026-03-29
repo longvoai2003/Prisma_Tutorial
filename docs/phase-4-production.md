@@ -9,8 +9,12 @@
 ### Interactive Transactions
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import "dotenv/config";
+import { PrismaClient } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
 
 // ─── Transfer credits between users (must be atomic) ───
 async function transferCredits(fromId: number, toId: number, amount: number) {
@@ -165,8 +169,12 @@ const enrichedPrisma = prisma.$extends({
 Create `prisma/seed.ts`:
 
 ```typescript
-import { PrismaClient, Role, PostStatus } from "@prisma/client";
-const prisma = new PrismaClient();
+import "dotenv/config";
+import { PrismaClient, Role, PostStatus } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -305,16 +313,21 @@ npx prisma migrate reset
 Create `src/db.ts` — use ONE Prisma Client instance across your app:
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { PrismaClient } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 // Prevent multiple instances during hot-reload in development
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    adapter,
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
@@ -341,7 +354,7 @@ const users = await prisma.user.findMany();
 ## 4.5 Error Handling
 
 ```typescript
-import { Prisma } from "@prisma/client";
+import { Prisma } from "./generated/prisma/client";
 
 async function handleErrors() {
   try {

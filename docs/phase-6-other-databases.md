@@ -40,7 +40,7 @@ DATABASE_URL="postgresql://postgres:password@localhost:5432/myapp?schema=public"
 ```prisma
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 model Product {
@@ -85,6 +85,8 @@ const results = await prisma.$queryRaw`
 `;
 ```
 
+> 📦 **Prisma 7 Adapter**: Use `@prisma/adapter-pg` with the `PrismaPg` class for PostgreSQL.
+
 ---
 
 ## 6.3 SQLite Example
@@ -108,7 +110,7 @@ DATABASE_URL="file:./dev.db"
 ```prisma
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 model Todo {
@@ -139,6 +141,8 @@ model TodoList {
 > - Auto-increment is the default for `@id`
 > - File-based — the whole DB is a single `.db` file
 
+> 📦 **Prisma 7 Adapter**: Use `@prisma/adapter-libsql` with the `PrismaLibSQL` class for SQLite.
+
 ---
 
 ## 6.4 MongoDB Example
@@ -162,11 +166,12 @@ DATABASE_URL="mongodb+srv://user:pass@cluster.mongodb.net/mydb?retryWrites=true&
 ```prisma
 datasource db {
   provider = "mongodb"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-ts"
+  output   = "../src/generated/prisma"
 }
 
 model User {
@@ -262,7 +267,7 @@ Distributed SQL — compatible with PostgreSQL but globally distributed.
 ```prisma
 datasource db {
   provider = "cockroachdb"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 model User {

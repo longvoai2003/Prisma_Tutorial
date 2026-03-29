@@ -13,7 +13,7 @@ A complete REST API with authentication patterns, CRUD, pagination, and search.
 ```bash
 mkdir blog-api && cd blog-api
 npm init -y
-npm install express @prisma/client bcryptjs jsonwebtoken
+npm install express @prisma/client @prisma/adapter-mariadb dotenv bcryptjs jsonwebtoken
 npm install -D prisma typescript ts-node @types/node @types/express \
   @types/bcryptjs @types/jsonwebtoken
 npx prisma init --datasource-provider mysql
@@ -23,12 +23,13 @@ npx prisma init --datasource-provider mysql
 
 ```prisma
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-ts"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
+  // URL is configured in prisma.config.ts (for CLI) and via the adapter (for runtime)
 }
 
 model User {
@@ -110,10 +111,13 @@ enum PostStatus {
 
 ```typescript
 import express from "express";
-import { PrismaClient, Prisma } from "@prisma/client";
+import "dotenv/config";
+import { PrismaClient, Prisma } from "./generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 const app = express();
-const prisma = new PrismaClient();
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
+const prisma = new PrismaClient({ adapter });
 app.use(express.json());
 
 // ─── GET /api/posts — List with pagination, search, filters ───

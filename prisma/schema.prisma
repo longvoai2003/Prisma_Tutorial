@@ -12,12 +12,15 @@ datasource db {
   provider = "mysql"
 }
 
+// 
+
 // ─── Your First Model ───────────────────────────────
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String?
   age       Int?
+  phone     String?
   isActive  Boolean  @default(true)
   role      Role     @default(USER)
   createdAt DateTime @default(now())

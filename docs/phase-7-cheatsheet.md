@@ -248,13 +248,15 @@ const emails = await prisma.user.findMany({
 
 Use this when starting a new Prisma + MySQL project:
 
-- [ ] `npm init -y` & install dependencies
+- [ ] `npm init -y` & install dependencies (including `@prisma/adapter-mariadb` & `dotenv`)
 - [ ] `npx prisma init --datasource-provider mysql`
 - [ ] Configure `DATABASE_URL` in `.env`
+- [ ] Configure `prisma.config.ts` (for CLI: migrations, studio)
 - [ ] Add `.env` to `.gitignore`
+- [ ] Update `schema.prisma`: set `provider = "prisma-client-ts"` and `output`
 - [ ] Design schema in `prisma/schema.prisma`
 - [ ] Run `npx prisma migrate dev --name init`
-- [ ] Create `src/db.ts` with singleton pattern
+- [ ] Create `src/db.ts` with singleton pattern (using adapter)
 - [ ] Create `prisma/seed.ts` with test data
 - [ ] Add seed config to `package.json`
 - [ ] Install Prisma VS Code extension
